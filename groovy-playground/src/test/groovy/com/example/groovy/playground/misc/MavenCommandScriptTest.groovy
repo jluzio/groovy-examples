@@ -26,7 +26,7 @@ class MavenCommandScriptTest {
     def imageTagKey = params.imageTagKey
     def imageTagValue = params.imageTagValue
     def extraParams = mvnDockerParams(dockerRegistry, imageTagKey, imageTagValue)
-    def fullParams = [*:params, profiles: "-Pdocker,docker-image", extraParams: extraParams]
+    def fullParams = [profiles: "-Pdocker,docker-image", extraParams: extraParams, *: params]
     mvnCmd(fullParams)
   }
 
@@ -49,7 +49,7 @@ class MavenCommandScriptTest {
         .isEqualTo(expectedCmdDefault)
 
     log.info "=== goals ==="
-    def cmdGoals = sanitizeCmdText(mvnCmd([goals: "compile"]))
+    def cmdGoals = sanitizeCmdText(mvnCmd(goals: "compile"))
     def expectedCmdGoals = sanitizeExpectedCmdText("""
       export MAVEN_OPTS="-Xmx1024m"
       mvn compile -f pom.xml -Dmaven.test.skip=false -Dskip.integration.tests=false -Dskip.unit.tests=false
@@ -59,7 +59,7 @@ class MavenCommandScriptTest {
         .isEqualTo(expectedCmdGoals)
 
     log.info "=== target ==="
-    def cmdTarget = sanitizeCmdText(mvnCmd([target: "-pl submodule"]))
+    def cmdTarget = sanitizeCmdText(mvnCmd(target: "-pl submodule"))
     def expectedCmdTarget = sanitizeExpectedCmdText("""
       export MAVEN_OPTS="-Xmx1024m"
       mvn clean install -pl submodule -Dmaven.test.skip=false -Dskip.integration.tests=false -Dskip.unit.tests=false
@@ -69,7 +69,7 @@ class MavenCommandScriptTest {
         .isEqualTo(expectedCmdTarget)
 
     log.info "=== profiles ==="
-    def cmdProfiles = sanitizeCmdText(mvnCmd([profiles: "-Ptest"]))
+    def cmdProfiles = sanitizeCmdText(mvnCmd(profiles: "-Ptest"))
     def expectedCmdProfiles = sanitizeExpectedCmdText("""
       export MAVEN_OPTS="-Xmx1024m"
       mvn clean install -f pom.xml -Ptest -Dmaven.test.skip=false -Dskip.integration.tests=false -Dskip.unit.tests=false
@@ -79,7 +79,7 @@ class MavenCommandScriptTest {
         .isEqualTo(expectedCmdProfiles)
 
     log.info "=== testSkip ==="
-    def cmdTestSkip = sanitizeCmdText(mvnCmd([testSkip: "true"]))
+    def cmdTestSkip = sanitizeCmdText(mvnCmd(testSkip: "true"))
     def expectedCmdTestSkip = sanitizeExpectedCmdText("""
       export MAVEN_OPTS="-Xmx1024m"
       mvn clean install -f pom.xml -Dmaven.test.skip=true -Dskip.integration.tests=true -Dskip.unit.tests=true
@@ -89,7 +89,7 @@ class MavenCommandScriptTest {
         .isEqualTo(expectedCmdTestSkip)
 
     log.info "=== all ==="
-    def cmd_all = sanitizeCmdText(mvnCmd([goals: "compile", target: "-pl submodule", profiles: "-Ptest", testSkip: "true", extraParams: "-Dkey=val"]))
+    def cmd_all = sanitizeCmdText(mvnCmd(goals: "compile", target: "-pl submodule", profiles: "-Ptest", testSkip: "true", extraParams: "-Dkey=val"))
     def expectedCmd_all = sanitizeExpectedCmdText("""
       export MAVEN_OPTS="-Xmx1024m"
       mvn compile -pl submodule -Ptest -Dmaven.test.skip=true -Dskip.integration.tests=true -Dskip.unit.tests=true -Dkey=val
@@ -130,7 +130,7 @@ class MavenCommandScriptTest {
         .isEqualTo(expectedCmdDefault)
 
     log.info "=== dockerRegistry ==="
-    def cmdDockerRegistry = sanitizeCmdText(mvnDockerCmd([dockerRegistry: "docker-registry-url"]))
+    def cmdDockerRegistry = sanitizeCmdText(mvnDockerCmd(dockerRegistry: "docker-registry-url"))
     def expectedCmdDockerRegistry = sanitizeExpectedCmdText("""
       export MAVEN_OPTS="-Xmx1024m"
       mvn clean install -f pom.xml -Pdocker,docker-image -Dmaven.test.skip=false -Dskip.integration.tests=false -Dskip.unit.tests=false -Ddocker.registry.url=docker-registry-url
@@ -140,7 +140,7 @@ class MavenCommandScriptTest {
         .isEqualTo(expectedCmdDockerRegistry)
 
     log.info "=== imageTag ==="
-    def cmdImageTag = sanitizeCmdText(mvnDockerCmd([dockerRegistry: "docker-registry-url", imageTagKey: "imgTagKey", imageTagValue: "imgTagVal"]))
+    def cmdImageTag = sanitizeCmdText(mvnDockerCmd(dockerRegistry: "docker-registry-url", imageTagKey: "imgTagKey", imageTagValue: "imgTagVal"))
     def expectedCmdImageTag = sanitizeExpectedCmdText("""
       export MAVEN_OPTS="-Xmx1024m"
       mvn clean install -f pom.xml -Pdocker,docker-image -Dmaven.test.skip=false -Dskip.integration.tests=false -Dskip.unit.tests=false -Ddocker.registry.url=docker-registry-url imgTagKey=\"imgTagVal\"
@@ -148,6 +148,29 @@ class MavenCommandScriptTest {
     assertThat(cmdImageTag)
         .as("imageTag")
         .isEqualTo(expectedCmdImageTag)
+  }
+
+  @Test
+  void test_mvnDockerCmd_params_merge_priority() {
+    log.info "=== profilesDefault ==="
+    def cmdProfilesDefault = sanitizeCmdText(mvnDockerCmd())
+    def expectedCmdProfilesDefault = sanitizeExpectedCmdText("""
+      export MAVEN_OPTS="-Xmx1024m"
+      mvn clean install -f pom.xml -Pdocker,docker-image -Dmaven.test.skip=false -Dskip.integration.tests=false -Dskip.unit.tests=false
+      """)
+    assertThat(cmdProfilesDefault)
+        .as("profilesDefault")
+        .isEqualTo(expectedCmdProfilesDefault)
+
+    log.info "=== profilesMerge ==="
+    def cmdProfilesMerge = sanitizeCmdText(mvnDockerCmd(profiles: "-Pdbs,docker,docker-image"))
+    def expectedCmdProfilesMerged = sanitizeExpectedCmdText("""
+      export MAVEN_OPTS="-Xmx1024m"
+      mvn clean install -f pom.xml -Pdbs,docker,docker-image -Dmaven.test.skip=false -Dskip.integration.tests=false -Dskip.unit.tests=false
+      """)
+    assertThat(cmdProfilesMerge)
+        .as("profilesMerge")
+        .isEqualTo(expectedCmdProfilesMerged)
   }
 
   static String sanitizeExpectedCmdText(String value) {
