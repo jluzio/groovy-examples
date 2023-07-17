@@ -13,4 +13,11 @@ class StringTest {
     assertThat(output).isEqualTo("!a,!b,!c")
   }
 
+  @Test
+  void filter_join() {
+    def values = ["a", "b", "c"]
+    def output = values.findAll { it != "a" }.collect {"!" + it }.join(",")
+    assertThat(output).isEqualTo("!b,!c")
+  }
+
 }
